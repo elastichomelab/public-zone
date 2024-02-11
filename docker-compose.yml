@@ -44,3 +44,11 @@ services:
     container_name: "clamav"
     volumes:
       - source:clam_db, target=/var/lib/clamav
+
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: "tailscaled"
+    volumes:
+      - /var/lib:/var/lib
+      - /dev/net/tun:/dev/net/tun
+      - 
