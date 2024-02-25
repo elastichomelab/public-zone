@@ -16,39 +16,53 @@ services:
       - ./bind9/records:/var/lib/bind
     restart: unless-stopped
 
-  traefix:
-    image: traefik:v3.0
-    container_name: "traefik"
-    command:
-      #- "--log.level=DEBUG"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"
-      - "8080:8080"
+  nginx:
+    container_name: nginx
+    image: nginx
+    restart: always
+    ports: 
+      - "80:80/tcp"
+      - "443:443"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - front-connection
+    environment:
+      - TZ=Asia/Seoul
+    depends_on:
+      - api
+      - db
 
-  whoami:
-    image: "traefik/whoami"
-    container_name: "simple-service"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
-      - "traefik.http.routers.whoami.entrypoints=web" 
-
-  clamav:
-    image: clamav/clamav:stable
-    container_name: "clamav"
+  certbot:
+    container_name: certbot
+    image: certbot/certbot
+    restart: always
     volumes:
-      - source:clam_db, target=/var/lib/clamav
+     - ./certbot/conf:/etc/letsencrypt
+     - ./certbot/www:/var/www/certbot
+     - ./certbot/logs:/var/log/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
-  tailscale:
-    image: tailscale/tailscale:stable
-    container_name: "tailscaled"
-    volumes:
-      - /var/lib:/var/lib
-      - /dev/net/tun:/dev/net/tun
-      - 
+nfs-providing:
+
+fedora-desktop:
+  container_name: fedora-desktop
+  image: kasmweb/fedora-39-desktop:1.15.0-rolling
+  restart: always
+  ports:
+    6901:6901
+  enviroment:
+    VNC_PW=encryption-vault
+    
+
+
+networks:
+  public-zone:
+    name: public-zone-management
+
+volumes:
+  nfs-set:
+    driver-opts:
+      type: "nfs"
+      o: "ipaddr=nas.elastichomelab.com"
+      #device: "/mnt/storage/tls:/"
